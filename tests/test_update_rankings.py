@@ -1,5 +1,7 @@
 """Unit tests for scripts/update_rankings.py (no network needed)."""
+import json
 import sys
+import urllib.error
 from pathlib import Path
 
 import pytest
@@ -70,3 +72,35 @@ def test_write_index_replaces_only_the_data_block(tmp_path):
     text = page.read_text()
     assert text.startswith("before\n") and text.endswith("after\n") and "old" not in text
     assert not ur.write_index(block, page)  # second run: no change
+
+
+class FakeResponse:
+    def __init__(self, payload):
+        self.body = json.dumps(payload).encode()
+
+    def read(self, *args):
+        return self.body
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+def test_fetch_falls_back_to_next_source(monkeypatch):
+    good = {"entries": [entry("Ireland", 1, 1, 90)]}
+
+    def fake_urlopen(req, timeout):
+        if "first" in req.full_url:
+            raise urllib.error.URLError("Name or service not known")
+        return FakeResponse(good)
+
+    monkeypatch.setattr(ur.urllib.request, "urlopen", fake_urlopen)
+    assert ur.fetch(["https://first.example", "https://second.example"]) == good
+
+
+def test_fetch_skips_responses_in_the_wrong_format(monkeypatch):
+    monkeypatch.setattr(ur.urllib.request, "urlopen", lambda req, timeout: FakeResponse({"oops": 1}))
+    with pytest.raises(RuntimeError, match="No World Rugby rankings source worked"):
+        ur.fetch(["https://a.example", "https://b.example"])

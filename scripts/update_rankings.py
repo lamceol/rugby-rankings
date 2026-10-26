@@ -20,7 +20,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 INDEX = ROOT / "index.html"
 TEAMS_FILE = ROOT / "data" / "teams.json"
-API_URL = "https://api.wr-rugby.com/rugby/v1/rankings/mru"
+# World Rugby's rankings feed (hosted by Pulselive). Tried in order; the
+# older address is kept as a fallback in case it comes back.
+API_URLS = [
+    "https://api.wr-rims-prod.pulselive.com/rugby/v3/rankings/mru?language=en",
+    "https://api.wr-rugby.com/rugby/v1/rankings/mru",
+]
 BEGIN = "// BEGIN RANKINGS DATA"
 END = "// END RANKINGS DATA"
 MIN_TEAMS = 50  # refuse to write a suspiciously short list
@@ -124,13 +129,24 @@ def write_index(block, path=INDEX):
     return changed
 
 
-def fetch():
-    req = urllib.request.Request(API_URL, headers={
-        "User-Agent": "rugby-rankings-updater (+https://github.com/lamceol/rugby-rankings)",
-        "Accept": "application/json",
-    })
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        return json.load(resp)
+def fetch(urls=API_URLS):
+    """Return the first rankings response that can be fetched and parsed."""
+    errors = []
+    for url in urls:
+        req = urllib.request.Request(url, headers={
+            "User-Agent": "rugby-rankings-updater (+https://github.com/lamceol/rugby-rankings)",
+            "Accept": "application/json",
+        })
+        try:
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                payload = json.load(resp)
+            parse_api(payload)  # make sure it's a rankings response before using it
+            print(f"Fetched rankings from {url}")
+            return payload
+        except Exception as exc:  # network error, bad JSON or unexpected format
+            print(f"::warning::Couldn't use {url}: {exc}")
+            errors.append(f"{url}: {exc}")
+    raise RuntimeError("No World Rugby rankings source worked:\n  " + "\n  ".join(errors))
 
 
 def main(argv=None):
