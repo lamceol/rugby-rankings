@@ -23,6 +23,7 @@ def test_normalise_matches_spelling_variants():
 def test_lookup_handles_aliases():
     lookup = ur.load_lookup()
     assert lookup[ur.normalise("Hong Kong China")][0] == "Hong Kong"
+    assert lookup[ur.normalise("Niue Island")][0] == "Niue"  # World Rugby's spelling
     assert lookup[ur.normalise("Australia")][1]["id"] == "036"  # zero-padded like the map
 
 

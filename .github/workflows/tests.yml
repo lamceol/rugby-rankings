@@ -18,7 +18,8 @@ jobs:
       - name: Check rankings data and updater
         run: pytest tests/test_data.py tests/test_update_rankings.py -q
 
-  links:
+  # Named check-urls because main's branch protection requires that check
+  check-urls:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5

@@ -17,7 +17,20 @@ jobs:
   update:
     runs-on: ubuntu-latest
     steps:
+      # main is protected, so the default token can't push to it. RANKINGS_TOKEN
+      # is a fine-grained token (Contents: read and write, this repo only)
+      # belonging to a repo admin, who is allowed to bypass the protection.
+      - name: Check the push token is set
+        env:
+          RANKINGS_TOKEN: ${{ secrets.RANKINGS_TOKEN }}
+        run: |
+          if [ -z "$RANKINGS_TOKEN" ]; then
+            echo "::error::Add a RANKINGS_TOKEN repo secret (Settings > Secrets and variables > Actions)"
+            exit 1
+          fi
       - uses: actions/checkout@v5
+        with:
+          token: ${{ secrets.RANKINGS_TOKEN }}
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
