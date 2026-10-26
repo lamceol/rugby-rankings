@@ -1,0 +1,623 @@
+<title>World Rugby Rankings</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@300;400;500&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.35.2/plotly.min.js"></script>
+
+<style>
+  :root {
+    --bg:        #090e0b;
+    --bg-card:   #0f1a12;
+    --bg-muted:  #152019;
+    --border:    #1e3326;
+    --fg:        #d4e8da;
+    --fg-muted:  #6b9477;
+    --fg-dim:    #2e4d38;
+    --gold:      #e8b84b;
+    --gold-dim:  #8a6b1c;
+    --green:     #22a65c;
+    --up:        #4ade80;
+    --down:      #f87171;
+    color-scheme: dark;
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: 'Barlow', system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.5;
+    margin: 0;
+    padding-block: 0;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+
+  /* ── Header ── */
+  .header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding-block: 20px 16px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 0;
+  }
+  .header-left { display: flex; flex-direction: column; gap: 4px; }
+  .eyebrow {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--gold);
+  }
+  h1 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: clamp(24px, 5vw, 40px);
+    font-weight: 800;
+    line-height: 1;
+    color: var(--fg);
+    margin: 0;
+    text-wrap: balance;
+  }
+  h1 span { color: var(--gold); }
+  .updated {
+    font-size: 12px;
+    color: var(--fg-muted);
+    font-weight: 300;
+  }
+  .header-stats {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+  }
+  .stat {
+    text-align: right;
+  }
+  .stat-val {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--gold);
+    display: block;
+    line-height: 1;
+  }
+  .stat-label {
+    font-size: 11px;
+    color: var(--fg-muted);
+    text-transform: uppercase;
+    letter-spacing: .08em;
+  }
+
+  /* ── Map ── */
+  #map {
+    width: 100%;
+    height: clamp(300px, 55vh, 560px);
+    margin-bottom: 0;
+  }
+
+  /* ── Top bar ── */
+  .top-bar {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    padding-block: 16px;
+    border-bottom: 1px solid var(--border);
+    scrollbar-width: none;
+  }
+  .top-bar::-webkit-scrollbar { display: none; }
+  .top-card {
+    flex: 0 0 auto;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 14px;
+    min-width: 130px;
+    position: relative;
+    overflow: hidden;
+  }
+  .top-card::before {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 2px;
+    background: var(--gold);
+  }
+  .top-card-pos {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .1em;
+    color: var(--gold-dim);
+    text-transform: uppercase;
+    margin-bottom: 2px;
+  }
+  .top-card-name {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--fg);
+    line-height: 1.2;
+  }
+  .top-card-pts {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 13px;
+    color: var(--fg-muted);
+    margin-top: 2px;
+  }
+
+  /* ── Table ── */
+  .table-section {
+    padding-block: 24px 32px;
+  }
+  .section-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .section-head h2 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--fg-muted);
+    margin: 0;
+  }
+  .filter-wrap { display: flex; gap: 8px; flex-wrap: wrap; }
+  .filter-btn {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    background: var(--bg-muted);
+    border: 1px solid var(--border);
+    color: var(--fg-muted);
+    padding: 4px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: border-color .15s, color .15s;
+  }
+  .filter-btn:hover, .filter-btn.active {
+    border-color: var(--gold);
+    color: var(--gold);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+  thead th {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--fg-dim);
+    text-align: left;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  thead th.right { text-align: right; }
+  tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background .1s;
+  }
+  tbody tr:hover { background: var(--bg-muted); }
+  td { padding: 9px 10px; vertical-align: middle; }
+  td.right { text-align: right; }
+
+  .rank-num {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--fg-muted);
+    min-width: 28px;
+    display: inline-block;
+  }
+  .rank-num.top3 { color: var(--gold); }
+
+  .country-name {
+    font-weight: 500;
+    color: var(--fg);
+  }
+  .map-note {
+    font-size: 11px;
+    color: var(--fg-dim);
+    margin-left: 6px;
+  }
+
+  .pts-val {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 600;
+    font-size: 15px;
+    color: var(--fg);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .move {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    min-width: 36px;
+    justify-content: flex-end;
+    font-variant-numeric: tabular-nums;
+  }
+  .move.up   { color: var(--up); }
+  .move.down { color: var(--down); }
+  .move.same { color: var(--fg-dim); }
+
+  .tier {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border-radius: 2px;
+    white-space: nowrap;
+  }
+  .tier-1 { background: rgba(232,184,75,.15); color: var(--gold); }
+  .tier-2 { background: rgba(34,166,92,.15);  color: var(--green); }
+  .tier-3 { background: rgba(107,148,119,.12); color: var(--fg-muted); }
+  .tier-4 { background: rgba(46,77,56,.2); color: var(--fg-dim); }
+
+  footer {
+    border-top: 1px solid var(--border);
+    padding-block: 20px;
+    font-size: 12px;
+    color: var(--fg-dim);
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  footer a { color: var(--fg-muted); }
+</style>
+
+<header class="header">
+  <div class="header-left">
+    <span class="eyebrow">Men's 15s</span>
+    <h1>World Rugby <span>Rankings</span></h1>
+    <span class="updated" id="updated-date"></span>
+  </div>
+  <div class="header-stats">
+    <div class="stat">
+      <span class="stat-val" id="stat-nations"></span>
+      <span class="stat-label">Nations</span>
+    </div>
+    <div class="stat">
+      <span class="stat-val" id="stat-leader"></span>
+      <span class="stat-label">World #1</span>
+    </div>
+    <div class="stat">
+      <span class="stat-val" id="stat-leader-pts"></span>
+      <span class="stat-label">Points</span>
+    </div>
+  </div>
+</header>
+
+<div id="map"></div>
+
+<div class="top-bar" id="top-bar"></div>
+
+<div class="table-section">
+  <div class="section-head">
+    <h2>Full Rankings</h2>
+    <div class="filter-wrap">
+      <button class="filter-btn active" data-tier="all">All</button>
+      <button class="filter-btn" data-tier="1">Tier 1</button>
+      <button class="filter-btn" data-tier="2">Tier 2</button>
+      <button class="filter-btn" data-tier="3">Tier 3+</button>
+    </div>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>Rank</th>
+        <th>Nation</th>
+        <th class="right">Points</th>
+        <th class="right">Change</th>
+        <th class="right">Tier</th>
+      </tr>
+    </thead>
+    <tbody id="rankings-body"></tbody>
+  </table>
+</div>
+
+<footer>
+  <span>Data: <a href="https://www.world.rugby/rankings" target="_blank" rel="noopener">World Rugby</a> · Men's 15s</span>
+  <span id="footer-date"></span>
+</footer>
+
+<script>
+const RAW = [
+  {name:"South Africa",code:"ZAF",pos:1,prevPos:1,pts:93.09},
+  {name:"New Zealand",code:"NZL",pos:2,prevPos:2,pts:92.27},
+  {name:"Ireland",code:"IRL",pos:3,prevPos:3,pts:88.08},
+  {name:"France",code:"FRA",pos:4,prevPos:4,pts:87.43},
+  {name:"England",code:"ENG",pos:5,prevPos:5,pts:85.68},
+  {name:"Scotland",code:"SCO",pos:6,prevPos:7,pts:84.78},
+  {name:"Australia",code:"AUS",pos:7,prevPos:6,pts:84.43},
+  {name:"Argentina",code:"ARG",pos:8,prevPos:8,pts:82.24},
+  {name:"Japan",code:"JPN",pos:9,prevPos:9,pts:77.28},
+  {name:"Fiji",code:"FJI",pos:10,prevPos:10,pts:76.81},
+  {name:"Wales",code:"WAL",pos:11,prevPos:11,pts:76.38},
+  {name:"Italy",code:"ITA",pos:12,prevPos:12,pts:76.30},
+  {name:"Georgia",code:"GEO",pos:13,prevPos:13,pts:73.94},
+  {name:"Portugal",code:"PRT",pos:14,prevPos:14,pts:69.39},
+  {name:"USA",code:"USA",pos:15,prevPos:15,pts:67.58},
+  {name:"Chile",code:"CHL",pos:16,prevPos:16,pts:66.94},
+  {name:"Spain",code:"ESP",pos:17,prevPos:17,pts:66.83},
+  {name:"Uruguay",code:"URY",pos:18,prevPos:18,pts:65.75},
+  {name:"Tonga",code:"TON",pos:19,prevPos:19,pts:65.14},
+  {name:"Samoa",code:"WSM",pos:20,prevPos:20,pts:64.73},
+  {name:"Romania",code:"ROU",pos:21,prevPos:21,pts:62.45},
+  {name:"Canada",code:"CAN",pos:22,prevPos:22,pts:62.29},
+  {name:"Belgium",code:"BEL",pos:23,prevPos:23,pts:61.03},
+  {name:"Hong Kong",code:"HKG",pos:24,prevPos:24,pts:60.74},
+  {name:"Zimbabwe",code:"ZWE",pos:25,prevPos:25,pts:57.68},
+  {name:"Namibia",code:"NAM",pos:26,prevPos:26,pts:56.96},
+  {name:"Netherlands",code:"NLD",pos:27,prevPos:27,pts:56.44},
+  {name:"Switzerland",code:"CHE",pos:28,prevPos:28,pts:55.47},
+  {name:"Czechia",code:"CZE",pos:29,prevPos:29,pts:54.78},
+  {name:"Poland",code:"POL",pos:30,prevPos:30,pts:54.54},
+  {name:"Paraguay",code:"PRY",pos:31,prevPos:31,pts:52.15},
+  {name:"Russia",code:"RUS",pos:32,prevPos:32,pts:52.06},
+  {name:"Brazil",code:"BRA",pos:33,prevPos:33,pts:51.50},
+  {name:"Sweden",code:"SWE",pos:34,prevPos:34,pts:51.11},
+  {name:"Germany",code:"DEU",pos:35,prevPos:35,pts:50.92},
+  {name:"Kenya",code:"KEN",pos:36,prevPos:36,pts:50.09},
+  {name:"Mexico",code:"MEX",pos:37,prevPos:37,pts:49.97},
+  {name:"Korea",code:"KOR",pos:38,prevPos:38,pts:49.29},
+  {name:"Morocco",code:"MAR",pos:39,prevPos:39,pts:47.54},
+  {name:"UAE",code:"ARE",pos:40,prevPos:40,pts:47.45},
+  {name:"Colombia",code:"COL",pos:41,prevPos:41,pts:47.11},
+  {name:"Cayman Islands",code:"CYM",pos:42,prevPos:42,pts:46.52},
+  {name:"Philippines",code:"PHL",pos:43,prevPos:43,pts:46.35},
+  {name:"Malta",code:"MLT",pos:44,prevPos:44,pts:45.83},
+  {name:"Algeria",code:"DZA",pos:45,prevPos:45,pts:45.82},
+  {name:"Madagascar",code:"MDG",pos:46,prevPos:46,pts:45.76},
+  {name:"Senegal",code:"SEN",pos:47,prevPos:47,pts:45.72},
+  {name:"Tunisia",code:"TUN",pos:48,prevPos:48,pts:45.56},
+  {name:"Sri Lanka",code:"LKA",pos:49,prevPos:49,pts:45.53},
+  {name:"Uganda",code:"UGA",pos:50,prevPos:50,pts:45.12},
+  {name:"Ukraine",code:"UKR",pos:51,prevPos:51,pts:44.99},
+  {name:"Trinidad & Tobago",code:"TTO",pos:52,prevPos:52,pts:44.27},
+  {name:"Croatia",code:"HRV",pos:53,prevPos:53,pts:43.59},
+  {name:"Luxembourg",code:"LUX",pos:54,prevPos:54,pts:43.09},
+  {name:"Lithuania",code:"LTU",pos:55,prevPos:55,pts:43.02},
+  {name:"Malaysia",code:"MYS",pos:56,prevPos:56,pts:42.93},
+  {name:"Moldova",code:"MDA",pos:57,prevPos:57,pts:41.11},
+  {name:"Denmark",code:"DNK",pos:58,prevPos:58,pts:40.94},
+  {name:"Kazakhstan",code:"KAZ",pos:59,prevPos:59,pts:40.49},
+  {name:"Israel",code:"ISR",pos:60,prevPos:63,pts:40.49},
+  {name:"Barbados",code:"BRB",pos:61,prevPos:60,pts:40.43},
+  {name:"Chinese Taipei",code:"TWN",pos:62,prevPos:61,pts:40.27},
+  {name:"Jamaica",code:"JAM",pos:63,prevPos:62,pts:40.00},
+  {name:"Austria",code:"AUT",pos:64,prevPos:64,pts:39.65},
+  {name:"Latvia",code:"LVA",pos:65,prevPos:65,pts:39.63},
+  {name:"Zambia",code:"ZMB",pos:66,prevPos:66,pts:39.24},
+  {name:"Cook Islands",code:"COK",pos:67,prevPos:67,pts:39.11},
+  {name:"Cote D'Ivoire",code:"CIV",pos:68,prevPos:68,pts:39.06},
+  {name:"Bermuda",code:"BMU",pos:69,prevPos:69,pts:37.74},
+  {name:"Serbia",code:"SRB",pos:70,prevPos:70,pts:37.66},
+  {name:"Thailand",code:"THA",pos:71,prevPos:71,pts:37.55},
+  {name:"Singapore",code:"SGP",pos:72,prevPos:72,pts:37.30},
+  {name:"Guyana",code:"GUY",pos:73,prevPos:73,pts:36.85},
+  {name:"Nigeria",code:"NGA",pos:74,prevPos:74,pts:36.82},
+  {name:"Venezuela",code:"VEN",pos:75,prevPos:75,pts:36.78},
+  {name:"Bulgaria",code:"BGR",pos:76,prevPos:76,pts:36.75},
+  {name:"Finland",code:"FIN",pos:77,prevPos:77,pts:36.35},
+  {name:"Botswana",code:"BWA",pos:78,prevPos:78,pts:36.21},
+  {name:"Peru",code:"PER",pos:79,prevPos:80,pts:35.05},
+  {name:"Andorra",code:"AND",pos:80,prevPos:79,pts:34.63},
+  {name:"Ghana",code:"GHA",pos:81,prevPos:81,pts:34.38},
+  {name:"Slovenia",code:"SVN",pos:83,prevPos:83,pts:33.52},
+  {name:"Turkey",code:"TUR",pos:84,prevPos:84,pts:32.66},
+  {name:"India",code:"IND",pos:85,prevPos:85,pts:31.83},
+  {name:"Hungary",code:"HUN",pos:86,prevPos:86,pts:31.29},
+  {name:"Burkina Faso",code:"BFA",pos:87,prevPos:87,pts:31.05},
+  {name:"Lesotho",code:"LSO",pos:89,prevPos:89,pts:30.46},
+  {name:"Iran",code:"IRN",pos:90,prevPos:90,pts:30.00},
+  {name:"Costa Rica",code:"CRI",pos:91,prevPos:91,pts:29.75},
+  {name:"China",code:"CHN",pos:92,prevPos:92,pts:28.91},
+  {name:"Bosnia & Herz.",code:"BIH",pos:93,prevPos:93,pts:28.36},
+  {name:"Papua New Guinea",code:"PNG",pos:94,prevPos:94,pts:27.68},
+  {name:"Bahamas",code:"BHS",pos:96,prevPos:96,pts:27.46},
+  {name:"Eswatini",code:"SWZ",pos:97,prevPos:97,pts:25.58},
+  {name:"Qatar",code:"QAT",pos:98,prevPos:98,pts:25.31},
+  {name:"Uzbekistan",code:"UZB",pos:99,prevPos:99,pts:25.28},
+  {name:"Mauritius",code:"MUS",pos:100,prevPos:100,pts:24.56},
+  {name:"Norway",code:"NOR",pos:101,prevPos:101,pts:24.50},
+  {name:"Pakistan",code:"PAK",pos:102,prevPos:102,pts:24.13},
+  {name:"Nepal",code:"NPL",pos:103,prevPos:103,pts:24.00},
+  {name:"Rwanda",code:"RWA",pos:104,prevPos:104,pts:23.78},
+  {name:"Laos",code:"LAO",pos:105,prevPos:105,pts:23.38},
+  {name:"Cameroon",code:"CMR",pos:106,prevPos:106,pts:23.12},
+  {name:"Burundi",code:"BDI",pos:108,prevPos:108,pts:20.16},
+  {name:"Solomon Islands",code:"SLB",pos:109,prevPos:109,pts:17.97},
+  {name:"Indonesia",code:"IDN",pos:110,prevPos:110,pts:15.95},
+  {name:"Monaco",code:"MCO",pos:111,prevPos:111,pts:11.17},
+  {name:"Greece",code:"GRC",pos:112,prevPos:112,pts:10.55},
+  {name:"Vanuatu",code:"VUT",pos:113,prevPos:113,pts:9.29},
+  {name:"American Samoa",code:"ASM",pos:114,prevPos:114,pts:7.53},
+];
+
+// UK home nations: England, Scotland, Wales all map to GBR
+// Use England (highest ranked) for the map colour; others note in table
+const CODE_MAP = { ENG: 'GBR', SCO: 'GBR', WAL: 'GBR' };
+const UK_NOTE  = new Set(['ENG','SCO','WAL']);
+
+function isoToMapCode(c) {
+  return CODE_MAP[c] || c;
+}
+
+function tier(pos) {
+  if (pos <= 12) return 1;
+  if (pos <= 20) return 2;
+  if (pos <= 40) return 3;
+  return 4;
+}
+function tierLabel(t) {
+  return ['','Tier 1','Tier 2','Tier 3','Tier 4'][t];
+}
+function tierClass(t) {
+  return 'tier tier-' + t;
+}
+
+function moveEl(pos, prevPos) {
+  const diff = prevPos - pos; // positive = moved up
+  if (diff > 0) return `<span class="move up">▲ ${diff}</span>`;
+  if (diff < 0) return `<span class="move down">▼ ${Math.abs(diff)}</span>`;
+  return `<span class="move same">—</span>`;
+}
+
+// ── Header stats ─────────────────────────────────────────────
+const now = new Date();
+const dateStr = now.toLocaleDateString('en-AU', {day:'numeric', month:'long', year:'numeric'});
+document.getElementById('updated-date').textContent = `Rankings as of ${dateStr}`;
+document.getElementById('footer-date').textContent   = `Last updated ${dateStr}`;
+document.getElementById('stat-nations').textContent  = RAW.length;
+document.getElementById('stat-leader').textContent   = RAW[0].name;
+document.getElementById('stat-leader-pts').textContent = RAW[0].pts.toFixed(2);
+
+// ── Top 10 cards ─────────────────────────────────────────────
+const topBar = document.getElementById('top-bar');
+RAW.slice(0, 10).forEach(d => {
+  const card = document.createElement('div');
+  card.className = 'top-card';
+  card.innerHTML = `
+    <div class="top-card-pos">#${d.pos}</div>
+    <div class="top-card-name">${d.name}</div>
+    <div class="top-card-pts">${d.pts.toFixed(2)} pts</div>
+  `;
+  topBar.appendChild(card);
+});
+
+// ── Rankings table ────────────────────────────────────────────
+const tbody = document.getElementById('rankings-body');
+function renderTable(filterTier) {
+  tbody.innerHTML = '';
+  RAW.forEach(d => {
+    const t = tier(d.pos);
+    if (filterTier !== 'all' && String(t) !== filterTier &&
+        !(filterTier === '3' && t >= 3)) return;
+    if (filterTier === '3' && t < 3) return;
+
+    const tr = document.createElement('tr');
+    tr.dataset.tier = t;
+    const rankClass = d.pos <= 3 ? 'rank-num top3' : 'rank-num';
+    const ukNote = UK_NOTE.has(d.code)
+      ? `<span class="map-note">(shown as GBR on map)</span>` : '';
+    tr.innerHTML = `
+      <td><span class="${rankClass}">${d.pos}</span></td>
+      <td><span class="country-name">${d.name}</span>${ukNote}</td>
+      <td class="right"><span class="pts-val">${d.pts.toFixed(2)}</span></td>
+      <td class="right">${moveEl(d.pos, d.prevPos)}</td>
+      <td class="right"><span class="${tierClass(t)}">${tierLabel(t)}</span></td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+renderTable('all');
+
+document.querySelectorAll('.filter-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderTable(btn.dataset.tier);
+  });
+});
+
+// ── Map ───────────────────────────────────────────────────────
+// Build map data — for GBR use England's entry (highest ranked home nation)
+const seen = new Set();
+const mapData = [];
+RAW.forEach(d => {
+  const mc = isoToMapCode(d.code);
+  if (seen.has(mc)) return;
+  seen.add(mc);
+  const moveStr = d.prevPos - d.pos > 0
+    ? `▲ ${d.prevPos - d.pos}` : d.prevPos - d.pos < 0
+    ? `▼ ${Math.abs(d.prevPos - d.pos)}` : '—';
+  const displayName = mc === 'GBR' ? 'United Kingdom (Eng #5 / Sco #6 / Wal #11)' : d.name;
+  mapData.push({
+    code: mc,
+    pts: d.pts,
+    text: `<b>${displayName}</b><br>Rank: #${d.pos}<br>Points: ${d.pts.toFixed(2)}<br>Change: ${moveStr}`,
+  });
+});
+
+Plotly.newPlot('map', [{
+  type: 'choropleth',
+  locationmode: 'ISO-3',
+  locations: mapData.map(d => d.code),
+  z: mapData.map(d => d.pts),
+  text: mapData.map(d => d.text),
+  hoverinfo: 'text',
+  colorscale: [
+    [0,    '#0d2b1e'],
+    [0.15, '#134d34'],
+    [0.38, '#1a7a4a'],
+    [0.58, '#22a65c'],
+    [0.76, '#c9963a'],
+    [0.88, '#e0ac3a'],
+    [1.0,  '#f1c40f'],
+  ],
+  zmin: 7,
+  zmax: 93,
+  marker: {
+    line: { color: '#0a1a10', width: 0.5 }
+  },
+  colorbar: {
+    title: { text: 'Points', font: { color: '#6b9477', size: 11 } },
+    tickfont: { color: '#6b9477', size: 10 },
+    thickness: 12,
+    len: 0.6,
+    x: 1.01,
+    bgcolor: 'rgba(0,0,0,0)',
+    bordercolor: 'rgba(0,0,0,0)',
+  },
+}], {
+  geo: {
+    showframe: false,
+    showcoastlines: true,
+    coastlinecolor: '#1a3326',
+    coastlinewidth: 0.5,
+    bgcolor: '#090e0b',
+    showland: true,
+    landcolor: '#111c15',
+    showocean: true,
+    oceancolor: '#070c09',
+    showlakes: false,
+    lakecolor: '#070c09',
+    showcountries: true,
+    countrycolor: '#0f1f16',
+    countrywidth: 0.4,
+    projection: { type: 'natural earth' },
+    lataxis: { range: [-60, 85] },
+  },
+  paper_bgcolor: '#090e0b',
+  plot_bgcolor:  '#090e0b',
+  margin: { t: 4, b: 4, l: 0, r: 40 },
+  font: { family: 'Barlow, sans-serif', color: '#d4e8da' },
+  hoverlabel: {
+    bgcolor: '#0f1a12',
+    bordercolor: '#1e3326',
+    font: { color: '#d4e8da', size: 13 }
+  },
+}, {
+  responsive: true,
+  displayModeBar: false,
+});
+</script>
