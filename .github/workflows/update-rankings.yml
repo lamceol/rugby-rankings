@@ -1,0 +1,47 @@
+name: Update rankings
+
+on:
+  schedule:
+    # World Rugby publishes new rankings on Mondays; run Monday evening UTC
+    # (Tuesday morning in Australia).
+    - cron: "23 18 * * 1"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-rankings
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r tests/requirements.txt
+
+      - name: Fetch latest rankings from World Rugby
+        run: python scripts/update_rankings.py
+
+      - name: Sanity-check the new data
+        # A nation missing from data/teams.json shouldn't block the update;
+        # it's flagged by the last step instead.
+        run: pytest tests/test_data.py -q -k "not on_the_map"
+
+      - name: Commit if changed
+        run: |
+          if git diff --quiet index.html; then
+            echo "Rankings unchanged."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898299+github-actions[bot]@users.noreply.github.com"
+          AS_OF=$(grep -oP '"asOf": "\K[0-9-]+' index.html || echo latest)
+          git commit -am "Update rankings to $AS_OF"
+          git push
+
+      - name: Check every nation is on the map
+        run: pytest tests/test_data.py -q -k "on_the_map"
